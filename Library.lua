@@ -1951,6 +1951,239 @@ do
 
         return Toggle;
     end;
+function Funcs:AddRangeSlider(Idx, Info)
+    assert(Info.Text, 'AddRangeSlider: Missing slider text.')
+    assert(Info.Min, 'AddRangeSlider: Missing minimum value.')
+    assert(Info.Max, 'AddRangeSlider: Missing maximum value.')
+    assert(Info.Rounding ~= nil, 'AddRangeSlider: Missing rounding value.')
+
+    local default_min = Info.Default and Info.Default[1] or Info.Min
+    local default_max = Info.Default and Info.Default[2] or Info.Max
+
+    local Range = {
+        MinValue = default_min;
+        MaxValue = default_max;
+        Min = Info.Min;
+        Max = Info.Max;
+        Rounding = Info.Rounding;
+        MaxSize = 232;
+        Type = 'RangeSlider';
+        Callback = Info.Callback or function(min_val, max_val) end;
+    }
+
+    local Groupbox = self
+    local Container = Groupbox.Container
+
+    if not Info.Compact then
+        Library:CreateLabel({
+            Size = UDim2.new(1, 0, 0, 10);
+            TextSize = 14;
+            Text = Info.Text;
+            TextXAlignment = Enum.TextXAlignment.Left;
+            TextYAlignment = Enum.TextYAlignment.Bottom;
+            ZIndex = 5;
+            Parent = Container;
+        })
+
+        Groupbox:AddBlank(3)
+    end
+
+    local SliderOuter = Library:Create('Frame', {
+        BackgroundColor3 = Color3.new(0, 0, 0);
+        BorderColor3 = Color3.new(0, 0, 0);
+        Size = UDim2.new(1, -4, 0, 13);
+        ZIndex = 5;
+        Parent = Container;
+    })
+
+    Library:AddToRegistry(SliderOuter, {
+        BorderColor3 = 'Black';
+    })
+
+    local SliderInner = Library:Create('Frame', {
+        BackgroundColor3 = Library.MainColor;
+        BorderColor3 = Library.OutlineColor;
+        BorderMode = Enum.BorderMode.Inset;
+        Size = UDim2.new(1, 0, 1, 0);
+        ZIndex = 6;
+        Parent = SliderOuter;
+    })
+
+    Library:AddToRegistry(SliderInner, {
+        BackgroundColor3 = 'MainColor';
+        BorderColor3 = 'OutlineColor';
+    })
+
+    local Fill = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderColor3 = Library.AccentColorDark;
+        Position = UDim2.new(0, 0, 0, 0);
+        Size = UDim2.new(0, 0, 1, 0);
+        ZIndex = 7;
+        Parent = SliderInner;
+    })
+
+    Library:AddToRegistry(Fill, {
+        BackgroundColor3 = 'AccentColor';
+        BorderColor3 = 'AccentColorDark';
+    })
+
+    local HideBorderLeft = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Position = UDim2.new(0, -1, 0, 0);
+        Size = UDim2.new(0, 1, 1, 0);
+        ZIndex = 8;
+        Parent = Fill;
+    })
+
+    local HideBorderRight = Library:Create('Frame', {
+        BackgroundColor3 = Library.AccentColor;
+        BorderSizePixel = 0;
+        Position = UDim2.new(1, 0, 0, 0);
+        Size = UDim2.new(0, 1, 1, 0);
+        ZIndex = 8;
+        Parent = Fill;
+    })
+
+    Library:AddToRegistry(HideBorderLeft, {
+        BackgroundColor3 = 'AccentColor';
+    })
+
+    Library:AddToRegistry(HideBorderRight, {
+        BackgroundColor3 = 'AccentColor';
+    })
+
+    local DisplayLabel = Library:CreateLabel({
+        Size = UDim2.new(1, 0, 1, 0);
+        TextSize = 14;
+        Text = 'Range';
+        ZIndex = 9;
+        Parent = SliderInner;
+    })
+
+    Library:OnHighlight(SliderOuter, SliderOuter,
+        { BorderColor3 = 'AccentColor' },
+        { BorderColor3 = 'Black' }
+    )
+
+    if type(Info.Tooltip) == 'string' then
+        Library:AddToolTip(Info.Tooltip, SliderOuter)
+    end
+
+    local function Round(Value)
+        if Range.Rounding == 0 then
+            return math.floor(Value)
+        end
+        return tonumber(string.format('%.' .. Range.Rounding .. 'f', Value))
+    end
+
+    local function GetXFromValue(val)
+        return math.ceil(Library:MapValue(val, Range.Min, Range.Max, 0, Range.MaxSize))
+    end
+
+    local function GetValueFromX(x)
+        return Round(Library:MapValue(x, 0, Range.MaxSize, Range.Min, Range.Max))
+    end
+
+    function Range:Display()
+        local suffix = Info.Suffix or ''
+
+        DisplayLabel.Text = string.format('%s: %s%s - %s%s',
+            Info.Compact and Info.Text or '',
+            tostring(Range.MinValue), suffix,
+            tostring(Range.MaxValue), suffix
+        )
+
+        local x_min = GetXFromValue(Range.MinValue)
+        local x_max = GetXFromValue(Range.MaxValue)
+        local width = math.max(x_max - x_min, 0)
+
+        Fill.Position = UDim2.new(0, x_min, 0, 0)
+        Fill.Size = UDim2.new(0, width, 1, 0)
+
+        local left_visible = not (x_min == 0)
+        local right_visible = not (x_max == Range.MaxSize)
+
+        HideBorderLeft.Visible = left_visible
+        HideBorderRight.Visible = right_visible
+    end
+
+    function Range:SetValues(min_val, max_val)
+        min_val = Round(min_val)
+        max_val = Round(max_val)
+
+        min_val = math.clamp(min_val, Range.Min, Range.Max)
+        max_val = math.clamp(max_val, Range.Min, Range.Max)
+
+        if max_val < min_val then
+            max_val = min_val
+        end
+
+        Range.MinValue = min_val
+        Range.MaxValue = max_val
+
+        Range:Display()
+
+        Library:SafeCallback(Range.Callback, Range.MinValue, Range.MaxValue)
+        Library:SafeCallback(Range.Changed, Range.MinValue, Range.MaxValue)
+    end
+
+    function Range:OnChanged(Func)
+        Range.Changed = Func
+        Func(Range.MinValue, Range.MaxValue)
+    end
+
+    SliderInner.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1 and not Library:MouseIsOverOpenedFrame() then
+            local start_min = Range.MinValue
+            local start_max = Range.MaxValue
+
+            local x_min = GetXFromValue(start_min)
+            local x_max = GetXFromValue(start_max)
+            local base_x = SliderInner.AbsolutePosition.X
+
+            local click_x = Mouse.X
+            local handle
+
+            if math.abs(click_x - (base_x + x_min)) <= math.abs(click_x - (base_x + x_max)) then
+                handle = 'Min'
+            else
+                handle = 'Max'
+            end
+
+            local start_mouse = Mouse.X
+
+            while InputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) do
+                local delta = Mouse.X - start_mouse
+
+                if handle == 'Min' then
+                    local new_x_min = GetXFromValue(start_min) + delta
+                    new_x_min = math.clamp(new_x_min, 0, GetXFromValue(Range.MaxValue))
+                    local new_min_val = GetValueFromX(new_x_min)
+                    Range:SetValues(new_min_val, Range.MaxValue)
+                else
+                    local new_x_max = GetXFromValue(start_max) + delta
+                    new_x_max = math.clamp(new_x_max, GetXFromValue(Range.MinValue), Range.MaxSize)
+                    local new_max_val = GetValueFromX(new_x_max)
+                    Range:SetValues(Range.MinValue, new_max_val)
+                end
+
+                RenderStepped:Wait()
+            end
+
+            Library:AttemptSave()
+        end
+    end)
+
+    Range:Display()
+    Groupbox:AddBlank(Info.BlankSize or 6)
+    Groupbox:Resize()
+
+    Options[Idx] = Range
+
+    return Range
+end
 
     function Funcs:AddSlider(Idx, Info)
         assert(Info.Default, 'AddSlider: Missing default value.');
@@ -1993,7 +2226,7 @@ do
             ZIndex = 5;
             Parent = Container;
         });
-
+Slider.Outer = SliderOuter
         Library:AddToRegistry(SliderOuter, {
             BorderColor3 = 'Black';
         });
@@ -3264,6 +3497,7 @@ function Library:CreateWindow(...)
 
             Groupbox.Container = Container;
             setmetatable(Groupbox, BaseGroupbox);
+
 
             Groupbox:AddBlank(3);
             Groupbox:Resize();
