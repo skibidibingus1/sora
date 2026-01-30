@@ -1994,6 +1994,7 @@ function Funcs:AddRangeSlider(Idx, Info)
         Size = UDim2.new(1, -4, 0, 13);
         ZIndex = 5;
         Parent = Container;
+Slider.Outer = SliderOuter
     })
 
     Library:AddToRegistry(SliderOuter, {
@@ -2225,6 +2226,7 @@ end
             Size = UDim2.new(1, -4, 0, 13);
             ZIndex = 5;
             Parent = Container;
+Slider.Outer = SliderOuter
         });
 Slider.Outer = SliderOuter
         Library:AddToRegistry(SliderOuter, {
